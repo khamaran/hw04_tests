@@ -24,7 +24,7 @@ class PostModelTest(TestCase):
     def test_models_have_correct_object_names(self):
         """Проверяем, что у моделей корректно работает __str__."""
         titles = {
-            self.post: self.post.text[:15],
+            self.post: self.post.text[:50],
             self.group: self.group.title,
         }
         for field, expected_value in titles.items():
@@ -33,7 +33,7 @@ class PostModelTest(TestCase):
 
     def test_verbose_name(self):
         """verbose_name в полях совпадает с ожидаемым."""
-        post = PostModelTest.post
+        post = self.post
         field_verboses = {
             'text': 'Текст',
             'pub_date': 'Дата публикации',

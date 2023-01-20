@@ -47,7 +47,7 @@ class PostFormTests(TestCase):
         """Валидная форма создает пост."""
         posts_count = Post.objects.count()
         form_data = {
-            'text': self.post.text,
+            'text': 'Тест-текст',
             'group': self.group.pk,
         }
         # Отправляем POST-запрос
@@ -66,7 +66,7 @@ class PostFormTests(TestCase):
         # Проверяем, что создалась запись с заданным слагом
         self.assertTrue(
             Post.objects.filter(
-                text=self.post.text,
+                text='Тест-текст',
                 author=self.post.author,
                 group=self.group.pk
             ).exists()
@@ -93,11 +93,6 @@ class PostFormTests(TestCase):
                               kwargs={'post_id': self.post.pk}))
         # Проверяем, что число постов не изменилось
         self.assertEqual(Post.objects.count(), posts_count)
-        # Проверяем, что запись обновилась
-        self.assertTrue(
-            Post.objects.filter(
-                text=text_new,
-                author=self.post.author,
-                group=self.group.pk
-            ).exists()
-        )
+        post_edit = Post.objects.get(pk=self.group.pk)
+        post_edit.refresh_from_db()
+        self.assertEqual(post_edit.text, text_new)

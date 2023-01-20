@@ -30,41 +30,34 @@ class PostURLTests(TestCase):
             id='100'
         )
 
-    def test_home_url_exists_at_desired_location(self):
-        """Страница / доступна любому пользователю."""
-        response = self.guest_client.get('/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
+    def test_authorized_pages_url_exists_at_desired_location(self):
+        """URL-адрес использует соответствующий шаблон."""
+        # Шаблоны по адресам
+        templates_url_names = {
+            '/posts/100/edit/': HTTPStatus.OK,
+            '/create/': HTTPStatus.OK,
+        }
+        for address, status in templates_url_names.items():
+            with self.subTest(address=address):
+                response = self.authorized_client.get(address)
+                self.assertEqual(response.status_code, status)
 
-    def test_group_detail_url_exists_at_desired_location(self):
-        """Страница /group/<slug:slug>/ доступна любому пользователю."""
-        response = self.guest_client.get('/group/test-slug/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-
-    def test_profile_url_exists_at_desired_location(self):
-        """Страница /profile/<str:username>/ доступна любому пользователю."""
-        response = self.guest_client.get('/profile/User/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-
-    def test_post_id_url_exists_at_desired_location(self):
-        """Страница /posts/100/ доступна любому пользователю."""
-        response = self.guest_client.get('/posts/100/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-
-    def test_post_id_edit_url_exists_at_desired_location(self):
-        """Страница /posts/100/edit/ доступна только авторизированному
-        пользователю."""
-        response = self.authorized_client.get('/posts/100/edit/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-
-    def test_create_url_exists_at_desired_location(self):
-        """Страница /create/ доступна только авторизированному пользователю."""
-        response = self.authorized_client.get('/create/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-
-    def test_unexisting_page_url_exists_at_desired_location(self):
-        """Страница /unexisting_page/ ведёт к ошибке 404."""
-        response = self.guest_client.get('/unexisting_page/')
-        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+    def test_guest_pages_url_exists_at_desired_location(self):
+        """URL-адрес использует соответствующий шаблон."""
+        # Шаблоны по адресам
+        templates_url_names = {
+            '/': HTTPStatus.OK,
+            '/group/test-slug/': HTTPStatus.OK,
+            '/profile/User/': HTTPStatus.OK,
+            '/posts/100/': HTTPStatus.OK,
+            '/posts/100/edit/': HTTPStatus.OK,
+            '/create/': HTTPStatus.OK,
+            '/unexisting_page/': HTTPStatus.NOT_FOUND
+        }
+        for address, status in templates_url_names.items():
+            with self.subTest(address=address):
+                response = self.authorized_client.get(address)
+                self.assertEqual(response.status_code, status)
 
     def test_post_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
