@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Post, Group, User
 from django.conf import settings
-from .forms import PostForm
+from .forms import PostForm, CommentForm
 
 
 def index(request):
@@ -50,16 +50,23 @@ def profile(request, username):
 def post_detail(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     posts_count = post.author.posts.count()
+    form = CommentForm(request.POST or None)
+    comments = post.comments.all()
     context = {
         'post': post,
+        'form': form,
         'posts_count': posts_count,
+        'comments': comments
     }
     return render(request, 'posts/post_detail.html', context)
 
 
 @login_required
 def post_create(request):
-    form = PostForm(request.POST or None)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None
+    )
     if form.is_valid():
         post = form.save(commit=False)
         post.author = request.user
@@ -72,7 +79,11 @@ def post_create(request):
 def post_edit(request, post_id):
     post = get_object_or_404(Post, pk=post_id)
     is_edit = True
-    form = PostForm(request.POST, instance=post)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None,
+        instance=post
+    )
     if post.author != request.user:
         return redirect('posts:post_detail', post.id)
     if form.is_valid():
@@ -84,3 +95,16 @@ def post_edit(request, post_id):
         'post': post
     }
     return render(request, 'posts/post_create.html', context)
+
+
+@login_required
+def add_comment(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    # Получите пост и сохраните его в переменную post.
+    form = CommentForm(request.POST or None)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.author = request.user
+        comment.post = post
+        comment.save()
+    return redirect('posts:post_detail', post_id=post_id)

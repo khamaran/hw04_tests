@@ -1,6 +1,13 @@
+import shutil
+import tempfile
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase, Client
+from django.conf import settings
+from django.test import TestCase, Client, override_settings
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.core.cache import cache
+from django.conf import settings
 from django import forms
 
 from posts.models import Post, Group
@@ -8,7 +15,11 @@ from posts.models import Post, Group
 test_posts: int = 15
 User = get_user_model()
 
+# Папка для медиафайлов
+TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
+
+@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
 class PostViewsTests(TestCase):
     @classmethod
     def setUpClass(cls):
@@ -25,13 +36,33 @@ class PostViewsTests(TestCase):
             slug='test-slug',
             description='Тестовое описание',
         )
+        # Тест-картинка
+        small_gif = (
+            b'\x47\x49\x46\x38\x39\x61\x02\x00'
+            b'\x01\x00\x80\x00\x00\x00\x00\x00'
+            b'\xFF\xFF\xFF\x21\xF9\x04\x00\x00'
+            b'\x00\x00\x00\x2C\x00\x00\x00\x00'
+            b'\x02\x00\x01\x00\x00\x02\x02\x0C'
+            b'\x0A\x00\x3B'
+        )
+        uploaded = SimpleUploadedFile(
+            name='small.gif',
+            content=small_gif,
+            content_type='image/gif'
+        )
         # посты в БД
         for post in range(test_posts):
             cls.post = Post.objects.create(
                 author=cls.user,
                 group=cls.group,
-                text='Тестовые посты'
+                text='Тестовые посты',
+                image=uploaded
             )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def test_posts_pages_uses_correct_template(self):
         templates_pages_names = {
@@ -59,6 +90,8 @@ class PostViewsTests(TestCase):
         """Шаблон index сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse('posts:index'))
         self.assertIn('page_obj', response.context)
+        post_image = Post.objects.last().image
+        self.assertEqual(post_image, 'posts/small.gif')
 
     def test_first_page_index_page_contains_ten_records(self):
         # Проверка: количество постов на первой странице равно 10.
@@ -82,6 +115,8 @@ class PostViewsTests(TestCase):
         self.assertEqual(response.context.get('group').description,
                          'Тестовое описание')
         self.assertEqual(response.context.get('group').slug, 'test-slug')
+        post_image = Post.objects.last().image
+        self.assertEqual(post_image, 'posts/small.gif')
 
     def test_first_page_group_posts_page_contains_ten_records(self):
         # Проверка: количество постов на первой странице равно 10.
@@ -106,6 +141,8 @@ class PostViewsTests(TestCase):
         self.assertIn('posts', response.context)
         self.assertIn('posts_count', response.context)
         self.assertIn('page_obj', response.context)
+        post_image = Post.objects.last().image
+        self.assertEqual(post_image, 'posts/small.gif')
 
     def test_first_page_profile_page_contains_ten_records(self):
         # Проверка: количество постов на первой странице равно 10.
@@ -126,6 +163,8 @@ class PostViewsTests(TestCase):
         )
         self.assertIn('post', response.context)
         self.assertIn('posts_count', response.context)
+        post_image = Post.objects.last().image
+        self.assertEqual(post_image, 'posts/small.gif')
 
     def test_post_create_show_correct_context(self):
         """Шаблон post_create сформирован с правильным контекстом."""
@@ -152,3 +191,30 @@ class PostViewsTests(TestCase):
             with self.subTest(value=value):
                 form_field = response.context.get('form').fields.get(value)
                 self.assertIsInstance(form_field, expected)
+
+    def test_posts_index_cache(self):
+        """Кэш на главной странице работает правильно."""
+        cache.clear()
+        # Первый запрос: пост создан, но его нет в кэше
+        self.authorized_client.get(reverse('posts:index'))
+        cache_post = Post.objects.create(
+            text="Тест-кэш",
+            author=self.user
+        )
+        response_2 = self.authorized_client.get(reverse('posts:index'))
+        # Пост создан, но его нет во втором запросе,
+        self.assertNotIn(cache_post.text, response_2.content.decode())
+        # Чистим кэш
+        cache.clear()
+        # Делаем третий запрос
+        response_3 = self.authorized_client.get(reverse('posts:index'))
+        # Удаляем пост
+        cache_post.delete()
+        # Пост должен быть в кэше в третьем запросе, хотя он удалён
+        self.assertIn(cache_post.text, response_3.content.decode())
+        # Чистим кэш
+        cache.clear()
+        # Делаем 4 запрос
+        response_4 = self.authorized_client.get(reverse('posts:index'))
+        # Кэщ очищен, поста нет
+        self.assertNotIn(cache_post.text, response_4.content.decode())
