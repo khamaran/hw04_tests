@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.conf import settings
 from django import forms
 
-from posts.models import Post, Group
+from posts.models import Post, Group, Follow
 
 test_posts: int = 15
 User = get_user_model()
@@ -218,3 +218,48 @@ class PostViewsTests(TestCase):
         response_4 = self.authorized_client.get(reverse('posts:index'))
         # Кэщ очищен, поста нет
         self.assertNotIn(cache_post.text, response_4.content.decode())
+
+
+class FollowTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.follower = Client()
+        cls.following = Client()
+        cls.user_follower = User.objects.create(username='follower')
+        cls.user_following = User.objects.create(username='following')
+        cls.post = Post.objects.create(
+            author=cls.user_following,
+            text='Тест поста в ленте подписчиков'
+        )
+        cls.follower.force_login(cls.user_follower)
+        cls.following.force_login(cls.user_following)
+
+    def test_follow(self):
+        self.follower.get(reverse('posts:profile_follow',
+                                  kwargs={'username':
+                                          self.user_following.username}))
+        self.assertEqual(Follow.objects.all().count(), 1)
+
+    def test_unfollow(self):
+        self.follower.get(reverse('posts:profile_follow',
+                                  kwargs={'username':
+                                          self.user_following.username}))
+        self.follower.get(reverse('posts:profile_unfollow',
+                                  kwargs={'username':
+                                          self.user_following.username}))
+        self.assertEqual(Follow.objects.all().count(), 0)
+
+    def test_subscriber(self):
+        """Новая запись автора появляется в ленте подписчиков,
+        и не появляется в ленте подписок не подписчиков."""
+        Follow.objects.create(
+            user=self.user_follower,
+            author=self.user_following
+        )
+        response = self.follower.get('/follow/')
+        post_text = response.context['page_obj'][0].text
+        self.assertEqual(post_text, 'Тест поста в ленте подписчиков')
+        # проверка, что запись не появилась у неподписанного пользователя
+        response = self.following.get('/follow/')
+        self.assertNotEqual(response, 'Тест поста в ленте подписчиков')

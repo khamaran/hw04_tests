@@ -53,3 +53,10 @@ class Comment(CreatedModel):
     author = models.ForeignKey(User, on_delete=models.CASCADE,
                                related_name='comments')
     text = models.TextField('Текст', help_text='Текст нового комментария')
+
+
+class Follow(CreatedModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE,
+                             related_name='follower')
+    author = models.ForeignKey(User, on_delete=models.CASCADE,
+                               related_name='following')
