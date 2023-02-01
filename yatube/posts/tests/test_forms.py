@@ -141,10 +141,10 @@ class CommentCreateFormTests(TestCase):
 
     def test_create_comment(self):
         """Валидная форма создает комментарий"""
+        text_comment = 'Тестовый комментарий для формы'
         comments_count = Comment.objects.count()
         form_data = {
-            'text': 'Тестовый комментарий для формы',
-            'author': self.user,
+            'text': text_comment,
         }
         response = self.authorized_client.post(reverse(
             'posts:add_comment',
@@ -155,7 +155,7 @@ class CommentCreateFormTests(TestCase):
         self.assertEqual(Comment.objects.count(), comments_count + 1)
         self.assertTrue(
             Comment.objects.filter(
-                text='Тестовый комментарий для формы',
+                text=text_comment,
                 author=self.user,
             ).exists()
         )
@@ -167,7 +167,6 @@ class CommentCreateFormTests(TestCase):
         comments_count = Comment.objects.count()
         form_data = {
             'text': 'Тестовый коммент для формы',
-            'author': self.guest_client,
         }
         self.guest_client.post(
             reverse(

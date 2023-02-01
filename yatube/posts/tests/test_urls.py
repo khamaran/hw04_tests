@@ -69,6 +69,7 @@ class PostURLTests(TestCase):
             '/posts/100/': 'posts/post_detail.html',
             '/posts/100/edit/': 'posts/post_create.html',
             '/create/': 'posts/post_create.html',
+            '/follow/': 'posts/follow.html',
         }
         for address, template in templates_url_names.items():
             with self.subTest(address=address):
